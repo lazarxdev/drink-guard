@@ -9,7 +9,6 @@ import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
 import { supabase } from '@/lib/supabase';
 import { verifyPin } from '@/utils/crypto';
 import PINKeypad from '@/components/PINKeypad';
-import OnboardingModal from '@/components/OnboardingModal';
 import { ShieldToMonitor } from '@/components/animations/ShieldToMonitor';
 
 export default function Monitor() {
@@ -28,7 +27,6 @@ export default function Monitor() {
   const [isRecalibrating, setIsRecalibrating] = useState(false);
   const [pendingEventTimer, setPendingEventTimer] = useState<NodeJS.Timeout | null>(null);
   const [pendingEvent, setPendingEvent] = useState<Date | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const textOpacity = useRef(new Animated.Value(1)).current;
   const calibratingTextOpacity = useRef(new Animated.Value(0)).current;
   const monitoringTextOpacity = useRef(new Animated.Value(0)).current;
@@ -57,37 +55,6 @@ export default function Monitor() {
       stopButtonOpacity.setValue(0);
     }
   }, [isActivated]);
-
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      if (settings && (settings.onboarding_completed === false || settings.onboarding_completed === null)) {
-        setShowOnboarding(true);
-      } else if (settings && settings.onboarding_completed === true) {
-        setShowOnboarding(false);
-      }
-    };
-    checkOnboarding();
-  }, [settings?.onboarding_completed]);
-
-  const handleOnboardingComplete = async () => {
-    try {
-      const userId = settings?.user_id;
-      if (userId) {
-        const { error } = await supabase
-          .from('app_settings')
-          .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
-          .eq('user_id', userId);
-
-        if (error) {
-          console.error('Error updating onboarding status:', error);
-        } else {
-          setShowOnboarding(false);
-        }
-      }
-    } catch (error) {
-      console.error('Error updating onboarding status:', error);
-    }
-  };
 
   useEffect(() => {
     if (motionDetected && !isPaused && isActivated && !isStarting && !isCalibrating) {
@@ -376,12 +343,6 @@ export default function Monitor() {
 
   return (
     <LinearGradient colors={theme.gradient} style={styles.container}>
-      <OnboardingModal
-        visible={showOnboarding}
-        onComplete={handleOnboardingComplete}
-        themeColor={theme.primary}
-      />
-
       <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
         <Settings size={28} color={textColor} />
       </TouchableOpacity>
