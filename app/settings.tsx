@@ -53,12 +53,15 @@ export default function Settings() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
-  // Sync sliders with loaded settings
+  // Sync sliders with loaded settings - delay render until after
+  // entry animation so the native iOS slider calculates thumb position
+  // correctly against a stable layout
   useEffect(() => {
     if (settings) {
       if (settings.sensitivity !== undefined) setSensitivity(settings.sensitivity);
       if (settings.grace_period_seconds !== undefined) setGracePeriod(settings.grace_period_seconds);
-      setSlidersReady(true);
+      const timer = setTimeout(() => setSlidersReady(true), 300);
+      return () => clearTimeout(timer);
     }
   }, [settings?.sensitivity, settings?.grace_period_seconds]);
 
@@ -840,7 +843,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v2.0
+              Drink Guardian v2.1
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
