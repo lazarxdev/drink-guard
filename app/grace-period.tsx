@@ -13,7 +13,7 @@ export default function GracePeriod() {
   const { settings } = useApp();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [countdown, setCountdown] = useState(settings?.grace_period_seconds || 4);
+  const [countdown, setCountdown] = useState(settings?.grace_period_seconds ?? 4);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [showPinEntry, setShowPinEntry] = useState(false);
@@ -210,7 +210,7 @@ export default function GracePeriod() {
     <View style={[styles.container, { backgroundColor: isIncognito ? '#000' : '#1a1a1a' }]}>
       <GracePeriodCountdown
         seconds={countdown}
-        totalSeconds={settings?.grace_period_seconds || 4}
+        totalSeconds={settings?.grace_period_seconds ?? 4}
         onComplete={handleGracePeriodExpired}
         themeColor={theme.primary}
         showVolumeIcon={hasVolumeSequence}

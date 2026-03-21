@@ -37,7 +37,8 @@ export default function Settings() {
   const router = useRouter();
   const { settings, updateSensitivity, updateThemeColor, updateAlarmSound, updateUseFlash, updateIncognitoMode, updateVolumeMuteEnabled, updateGracePeriod } = useApp();
   const [sensitivity, setSensitivity] = useState(settings?.sensitivity ?? 40);
-  const [sensitivityReady, setSensitivityReady] = useState(false);
+  const [gracePeriod, setGracePeriod] = useState(settings?.grace_period_seconds ?? 4);
+  const [slidersReady, setSlidersReady] = useState(false);
   const [tamperingEvents, setTamperingEvents] = useState<TamperingEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,13 +53,14 @@ export default function Settings() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
-  // Sync sensitivity slider with loaded settings
+  // Sync sliders with loaded settings
   useEffect(() => {
-    if (settings?.sensitivity !== undefined) {
-      setSensitivity(settings.sensitivity);
-      setSensitivityReady(true);
+    if (settings) {
+      if (settings.sensitivity !== undefined) setSensitivity(settings.sensitivity);
+      if (settings.grace_period_seconds !== undefined) setGracePeriod(settings.grace_period_seconds);
+      setSlidersReady(true);
     }
-  }, [settings?.sensitivity]);
+  }, [settings?.sensitivity, settings?.grace_period_seconds]);
 
   useFocusEffect(
     useCallback(() => {
@@ -448,9 +450,9 @@ export default function Settings() {
             <Text style={[styles.sensitivityValue, { color: accentColor }]}>
               {sensitivity}%
             </Text>
-            {sensitivityReady && (
+            {slidersReady && (
               <Slider
-                key={`sensitivity-${sensitivity}`}
+                key={`sensitivity-${settings?.sensitivity ?? 40}`}
                 style={styles.slider}
                 minimumValue={10}
                 maximumValue={100}
@@ -545,19 +547,20 @@ export default function Settings() {
               <View style={styles.sliderContainer}>
                 <View style={styles.gracePeriodHeader}>
                   <Text style={[styles.flashToggleLabel, { color: textColor }]}>
-                    Grace Period: {settings?.grace_period_seconds || 4}s
+                    Grace Period: {gracePeriod}s
                   </Text>
                 </View>
                 <Text style={[styles.sectionDescription, { color: secondaryTextColor, marginBottom: 12 }]}>
                   Seconds to enter PIN after motion is detected
                 </Text>
                 <Slider
-                  key={`grace-${settings?.grace_period_seconds || 4}`}
+                  key={`grace-${settings?.grace_period_seconds ?? 4}`}
                   style={styles.slider}
                   minimumValue={2}
                   maximumValue={7}
                   step={1}
-                  value={settings?.grace_period_seconds || 4}
+                  value={gracePeriod}
+                  onValueChange={(v) => setGracePeriod(Math.round(v))}
                   onSlidingComplete={handleGracePeriodChange}
                   minimumTrackTintColor={accentColor}
                   maximumTrackTintColor={isDarkTheme ? '#333' : '#ddd'}
@@ -835,7 +838,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.6
+              Drink Guardian v1.7
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
