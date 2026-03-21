@@ -450,6 +450,7 @@ export default function Settings() {
             </Text>
             {sensitivityReady && (
               <Slider
+                key={`sensitivity-${sensitivity}`}
                 style={styles.slider}
                 minimumValue={10}
                 maximumValue={100}
@@ -833,7 +834,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.4
+              Drink Guardian v1.5
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
