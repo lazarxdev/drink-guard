@@ -250,8 +250,10 @@ export default function Settings() {
   };
 
   const handleGracePeriodChange = async (value: number) => {
+    const rounded = Math.round(value);
+    setGracePeriod(rounded);
     try {
-      await updateGracePeriod(value);
+      await updateGracePeriod(rounded);
     } catch (error) {
       Alert.alert('Error', 'Failed to update grace period');
     }
@@ -838,7 +840,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.8
+              Drink Guardian v1.9
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
