@@ -635,7 +635,7 @@ export default function Settings() {
             </TouchableOpacity>
           </View>
           <Text style={[styles.sectionDescription, { color: secondaryTextColor }]}>
-            Motion detection events from Incognito Mode
+            Motion detection events
           </Text>
 
           {loadingEvents ? (
@@ -843,7 +843,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guard v2.3
+              Drink Guard v2.4
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe

@@ -36,20 +36,21 @@ export default function Alert() {
         return;
       }
 
-      if (isIncognito) {
-        try {
-          const userId = settings?.user_id;
-          if (userId) {
-            await supabase.from('tampering_events').insert({
-              user_id: userId,
-              detected_at: new Date().toISOString(),
-              acknowledged: false,
-            });
-          }
-        } catch (error) {
-          console.error('Error saving tampering event:', error);
+      // Log tampering event for all modes
+      try {
+        const userId = settings?.user_id;
+        if (userId) {
+          await supabase.from('tampering_events').insert({
+            user_id: userId,
+            detected_at: new Date().toISOString(),
+            acknowledged: false,
+          });
         }
-      } else {
+      } catch (error) {
+        console.error('Error saving tampering event:', error);
+      }
+
+      if (!isIncognito) {
         await setupAudio();
         await playAlarmSound(settings?.alarm_sound || 'bell');
 

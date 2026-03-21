@@ -106,7 +106,7 @@ export default function Monitor() {
         }
       }
     }
-  }, [motionDetected, isIncognito, showBlackScreen, isPaused, isActivated, isStarting, isCalibrating, settings?.volume_mute_enabled, settings?.grace_period_seconds]);
+  }, [motionDetected, isIncognito, showBlackScreen, isPaused, isActivated, isStarting, isCalibrating]);
 
   const handleActivate = () => {
     setIsActivated(true);
