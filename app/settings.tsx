@@ -457,8 +457,8 @@ export default function Settings() {
                 minimumValue={10}
                 maximumValue={100}
                 step={1}
-                value={sensitivity}
-                onValueChange={setSensitivity}
+                value={settings?.sensitivity ?? 40}
+                onValueChange={(v) => setSensitivity(Math.round(v))}
                 onSlidingComplete={handleSensitivityChange}
                 minimumTrackTintColor={accentColor}
                 maximumTrackTintColor={isDarkTheme ? '#333' : '#ddd'}
@@ -559,7 +559,7 @@ export default function Settings() {
                   minimumValue={2}
                   maximumValue={7}
                   step={1}
-                  value={gracePeriod}
+                  value={settings?.grace_period_seconds ?? 4}
                   onValueChange={(v) => setGracePeriod(Math.round(v))}
                   onSlidingComplete={handleGracePeriodChange}
                   minimumTrackTintColor={accentColor}
@@ -838,7 +838,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.7
+              Drink Guardian v1.8
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
