@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { Platform, BackHandler } from 'react-native';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
+import { VolumeManager } from 'react-native-volume-manager';
 
 export type VolumeButton = 'up' | 'down';
+
+const MID_VOLUME = 0.5;
+const VOLUME_THRESHOLD = 0.01;
 
 interface VolumeButtonDetectionResult {
   sequence: VolumeButton[];
@@ -17,23 +21,23 @@ export function useVolumeButtons(
   const [sequence, setSequence] = useState<VolumeButton[]>([]);
   const [isListening, setIsListening] = useState(false);
   const sequenceRef = useRef<VolumeButton[]>([]);
-  const listenerRef = useRef<any>(null);
+  const lastVolumeRef = useRef<number>(MID_VOLUME);
+  const suppressRef = useRef(false);
 
-  const addToSequence = (button: VolumeButton) => {
+  const addToSequence = useCallback((button: VolumeButton) => {
     const newSequence = [...sequenceRef.current, button];
     sequenceRef.current = newSequence;
     setSequence(newSequence);
     onSequenceChange?.(newSequence);
-  };
+  }, [onSequenceChange]);
 
-  const resetSequence = () => {
+  const resetSequence = useCallback(() => {
     sequenceRef.current = [];
     setSequence([]);
-  };
+  }, []);
 
-  const startListening = () => {
+  const startListening = useCallback(async () => {
     if (Platform.OS === 'web') {
-      console.log('Volume button detection not available on web');
       setIsListening(true);
       return;
     }
@@ -41,26 +45,71 @@ export function useVolumeButtons(
     resetSequence();
     setIsListening(true);
 
-    // On Android, we can use BackHandler as a proxy for hardware buttons
-    // Note: This is a workaround. Full volume button detection requires native modules
-    if (Platform.OS === 'android') {
-      listenerRef.current = BackHandler.addEventListener('hardwareBackPress', () => {
-        // This is a placeholder - in a real implementation, you'd use a native module
-        // to detect actual volume button presses
-        return true;
-      });
-    }
-  };
+    try {
+      // Hide the system volume HUD so presses are invisible
+      VolumeManager.showNativeVolumeUI({ enabled: false });
 
-  const stopListening = () => {
+      // Set volume to midpoint so we can detect both up and down
+      await VolumeManager.setVolume(MID_VOLUME, { showUI: false });
+      lastVolumeRef.current = MID_VOLUME;
+      suppressRef.current = false;
+    } catch (err) {
+      console.error('Error initializing volume listener:', err);
+    }
+  }, [resetSequence]);
+
+  const stopListening = useCallback(() => {
     setIsListening(false);
-    listenerRef.current?.remove();
-    listenerRef.current = null;
-  };
+
+    if (Platform.OS !== 'web') {
+      try {
+        VolumeManager.showNativeVolumeUI({ enabled: true });
+      } catch (err) {
+        // ignore cleanup errors
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isListening || Platform.OS === 'web') return;
+
+    const listener = VolumeManager.addVolumeListener((result) => {
+      const newVolume = result.volume;
+      const diff = newVolume - lastVolumeRef.current;
+
+      // Ignore our own volume resets
+      if (suppressRef.current) {
+        suppressRef.current = false;
+        lastVolumeRef.current = newVolume;
+        return;
+      }
+
+      if (Math.abs(diff) < VOLUME_THRESHOLD) return;
+
+      const button: VolumeButton = diff > 0 ? 'up' : 'down';
+      addToSequence(button);
+
+      // Reset volume back to midpoint for next press detection
+      suppressRef.current = true;
+      VolumeManager.setVolume(MID_VOLUME, { showUI: false }).then(() => {
+        lastVolumeRef.current = MID_VOLUME;
+      });
+    });
+
+    return () => {
+      listener.remove();
+    };
+  }, [isListening, addToSequence]);
 
   useEffect(() => {
     return () => {
-      stopListening();
+      if (Platform.OS !== 'web') {
+        try {
+          VolumeManager.showNativeVolumeUI({ enabled: true });
+        } catch (err) {
+          // ignore
+        }
+      }
     };
   }, []);
 

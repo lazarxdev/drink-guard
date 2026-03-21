@@ -833,7 +833,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.1
+              Drink Guardian v1.2
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe

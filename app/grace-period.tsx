@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Vibration, Platform, TouchableOpacity } from 'react-native';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { verifyPin } from '@/utils/crypto';
@@ -7,19 +7,18 @@ import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
 import { supabase } from '@/lib/supabase';
 import GracePeriodCountdown from '@/components/GracePeriodCountdown';
 import PINKeypad from '@/components/PINKeypad';
-import { VolumeButton, parseVolumeSequence, validateVolumeSequence } from '@/hooks/useVolumeButtons';
+import { useVolumeButtons, parseVolumeSequence, validateVolumeSequence, VolumeButton } from '@/hooks/useVolumeButtons';
 
 export default function GracePeriod() {
   const { settings } = useApp();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [countdown, setCountdown] = useState(settings?.grace_period_seconds || 3);
-  const [volumeSequence, setVolumeSequence] = useState<VolumeButton[]>([]);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [showPinEntry, setShowPinEntry] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const expectedSequenceRef = useRef<VolumeButton[]>([]);
+  const matchHandledRef = useRef(false);
 
   const themeColor = settings?.theme_color || 'green';
   const theme = getTheme(themeColor);
@@ -29,10 +28,35 @@ export default function GracePeriod() {
   const expectedSequence = parseVolumeSequence(settings?.volume_mute_sequence || null);
   const hasVolumeSequence = volumeMuteEnabled && expectedSequence.length > 0;
 
-  // Keep a ref of expected sequence for use in callbacks
+  const { sequence: volumeSequence, startListening, stopListening, resetSequence } = useVolumeButtons();
+
+  // Start listening for hardware volume buttons when the screen mounts
   useEffect(() => {
-    expectedSequenceRef.current = expectedSequence;
-  }, [expectedSequence]);
+    if (hasVolumeSequence) {
+      startListening();
+    }
+    return () => {
+      stopListening();
+    };
+  }, [hasVolumeSequence]);
+
+  // Check volume sequence against expected on each press
+  useEffect(() => {
+    if (!hasVolumeSequence || volumeSequence.length === 0 || matchHandledRef.current) return;
+
+    if (volumeSequence.length === expectedSequence.length) {
+      const isValid = validateVolumeSequence(volumeSequence, expectedSequence);
+      if (isValid) {
+        matchHandledRef.current = true;
+        handleSequenceSuccess();
+      } else {
+        // Wrong sequence, reset and let them try again
+        resetSequence();
+      }
+    } else if (volumeSequence.length > expectedSequence.length) {
+      resetSequence();
+    }
+  }, [volumeSequence, expectedSequence, hasVolumeSequence]);
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -51,32 +75,11 @@ export default function GracePeriod() {
     };
   }, [countdown]);
 
-  const handleVolumePress = useCallback((button: VolumeButton) => {
-    if (Platform.OS !== 'web') {
-      Vibration.vibrate(50);
-    }
-
-    setVolumeSequence(prev => {
-      const newSequence = [...prev, button];
-      const expected = expectedSequenceRef.current;
-
-      if (newSequence.length === expected.length) {
-        const isValid = validateVolumeSequence(newSequence, expected);
-        if (isValid) {
-          handleSequenceSuccess();
-        } else {
-          return [];
-        }
-      }
-
-      return newSequence;
-    });
-  }, []);
-
   const handleGracePeriodExpired = async () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
+    stopListening();
 
     if (isIncognito) {
       try {
@@ -100,6 +103,7 @@ export default function GracePeriod() {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
+    stopListening();
 
     if (Platform.OS !== 'web') {
       Vibration.vibrate([0, 100, 50, 100]);
@@ -124,6 +128,7 @@ export default function GracePeriod() {
         if (timerRef.current) {
           clearTimeout(timerRef.current);
         }
+        stopListening();
 
         if (Platform.OS !== 'web') {
           Vibration.vibrate([0, 100, 50, 100]);
@@ -188,7 +193,7 @@ export default function GracePeriod() {
       />
 
       {hasVolumeSequence && (
-        <View style={styles.volumeControls}>
+        <View style={styles.volumeFeedback}>
           <View style={styles.sequenceProgress}>
             {expectedSequence.map((_, index) => (
               <View
@@ -205,25 +210,11 @@ export default function GracePeriod() {
             ))}
           </View>
 
-          <View style={styles.volumeButtonRow}>
-            <TouchableOpacity
-              style={[styles.volumeButton, { backgroundColor: theme.primary }]}
-              onPress={() => handleVolumePress('up')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.volumeButtonSymbol}>↑</Text>
-              <Text style={styles.volumeButtonLabel}>Vol Up</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.volumeButton, { backgroundColor: '#555' }]}
-              onPress={() => handleVolumePress('down')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.volumeButtonSymbol}>↓</Text>
-              <Text style={styles.volumeButtonLabel}>Vol Down</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.volumeHint}>
+            {volumeSequence.length === 0
+              ? 'Press your volume button sequence now'
+              : `${volumeSequence.length} / ${expectedSequence.length}`}
+          </Text>
 
           <TouchableOpacity onPress={() => setShowPinEntry(true)}>
             <Text style={styles.switchToPinText}>Use PIN instead</Text>
@@ -265,45 +256,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 24,
   },
-  volumeControls: {
+  volumeFeedback: {
     marginTop: 32,
     alignItems: 'center',
-    width: '100%',
   },
   sequenceProgress: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 16,
   },
   sequenceDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
-  volumeButtonRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-  },
-  volumeButton: {
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 14,
-    alignItems: 'center',
-    minWidth: 120,
-  },
-  volumeButtonSymbol: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  volumeButtonLabel: {
-    color: '#fff',
-    fontSize: 13,
-    marginTop: 4,
+  volumeHint: {
+    color: '#999',
+    fontSize: 14,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   switchToPinText: {
-    color: '#999',
+    color: '#666',
     fontSize: 14,
     textDecorationLine: 'underline',
   },

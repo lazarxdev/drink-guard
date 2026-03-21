@@ -1,11 +1,11 @@
 import { View, Text, TouchableOpacity, StyleSheet, Vibration, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Volume2, VolumeX, Check, RotateCcw, ChevronRight } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
-import { VolumeButton } from '@/hooks/useVolumeButtons';
+import { useVolumeButtons, VolumeButton } from '@/hooks/useVolumeButtons';
 
 const MIN_SEQUENCE_LENGTH = 2;
 const MAX_SEQUENCE_LENGTH = 4;
@@ -17,40 +17,73 @@ export default function SetupVolumeSequence() {
   const [confirmSequence, setConfirmSequence] = useState<VolumeButton[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState('');
+  const isConfirmingRef = useRef(false);
+  const sequenceRef = useRef<VolumeButton[]>([]);
+  const confirmSequenceRef = useRef<VolumeButton[]>([]);
 
   const themeColor = settings?.theme_color || 'green';
   const theme = getTheme(themeColor);
   const isDarkTheme = checkDarkTheme(themeColor);
   const textColor = isDarkTheme ? '#fff' : '#000';
 
-  const addButton = (button: VolumeButton) => {
-    if (Platform.OS !== 'web') {
-      Vibration.vibrate(50);
-    }
+  const handleVolumeChange = (hwSequence: VolumeButton[]) => {
+    if (hwSequence.length === 0) return;
+    const button = hwSequence[hwSequence.length - 1];
 
-    const currentSequence = isConfirming ? confirmSequence : sequence;
-    const setCurrentSequence = isConfirming ? setConfirmSequence : setSequence;
-
-    if (currentSequence.length < MAX_SEQUENCE_LENGTH) {
-      setCurrentSequence([...currentSequence, button]);
-      setError('');
+    if (isConfirmingRef.current) {
+      if (confirmSequenceRef.current.length < MAX_SEQUENCE_LENGTH) {
+        const updated = [...confirmSequenceRef.current, button];
+        confirmSequenceRef.current = updated;
+        setConfirmSequence(updated);
+        setError('');
+      }
+    } else {
+      if (sequenceRef.current.length < MAX_SEQUENCE_LENGTH) {
+        const updated = [...sequenceRef.current, button];
+        sequenceRef.current = updated;
+        setSequence(updated);
+        setError('');
+      }
     }
   };
+
+  const { startListening, stopListening, resetSequence: resetHwSequence } = useVolumeButtons(handleVolumeChange);
+
+  // Start listening on mount
+  useEffect(() => {
+    startListening();
+    return () => stopListening();
+  }, []);
+
+  // Keep refs in sync
+  useEffect(() => {
+    isConfirmingRef.current = isConfirming;
+  }, [isConfirming]);
 
   const removeLastButton = () => {
-    const currentSequence = isConfirming ? confirmSequence : sequence;
-    const setCurrentSequence = isConfirming ? setConfirmSequence : setSequence;
-
-    if (currentSequence.length > 0) {
-      setCurrentSequence(currentSequence.slice(0, -1));
-      setError('');
+    if (isConfirming) {
+      if (confirmSequence.length > 0) {
+        const updated = confirmSequence.slice(0, -1);
+        confirmSequenceRef.current = updated;
+        setConfirmSequence(updated);
+        setError('');
+      }
+    } else {
+      if (sequence.length > 0) {
+        const updated = sequence.slice(0, -1);
+        sequenceRef.current = updated;
+        setSequence(updated);
+        setError('');
+      }
     }
   };
 
-  const resetSequence = () => {
+  const clearSequence = () => {
     if (isConfirming) {
+      confirmSequenceRef.current = [];
       setConfirmSequence([]);
     } else {
+      sequenceRef.current = [];
       setSequence([]);
     }
     setError('');
@@ -63,11 +96,15 @@ export default function SetupVolumeSequence() {
         return;
       }
       setIsConfirming(true);
+      // Reset hw listener for the confirm phase
+      resetHwSequence();
       setError('');
     } else {
       if (confirmSequence.length !== sequence.length) {
         setError('Sequences do not match');
+        confirmSequenceRef.current = [];
         setConfirmSequence([]);
+        resetHwSequence();
         return;
       }
 
@@ -75,7 +112,9 @@ export default function SetupVolumeSequence() {
 
       if (!sequencesMatch) {
         setError('Sequences do not match');
+        confirmSequenceRef.current = [];
         setConfirmSequence([]);
+        resetHwSequence();
         return;
       }
 
@@ -84,6 +123,7 @@ export default function SetupVolumeSequence() {
   };
 
   const handleSave = async () => {
+    stopListening();
     try {
       await updateVolumeMuteSequence(sequence);
       router.back();
@@ -93,12 +133,12 @@ export default function SetupVolumeSequence() {
   };
 
   const handleSkip = () => {
+    stopListening();
     router.back();
   };
 
-  const canContinue = isConfirming
-    ? confirmSequence.length >= MIN_SEQUENCE_LENGTH
-    : sequence.length >= MIN_SEQUENCE_LENGTH;
+  const currentSequence = isConfirming ? confirmSequence : sequence;
+  const canContinue = currentSequence.length >= MIN_SEQUENCE_LENGTH;
 
   return (
     <LinearGradient colors={theme.gradient} style={styles.container}>
@@ -110,14 +150,14 @@ export default function SetupVolumeSequence() {
           </Text>
           <Text style={[styles.subtitle, { color: isDarkTheme ? '#999' : '#666' }]}>
             {isConfirming
-              ? 'Enter the same sequence again to confirm'
-              : 'Create a pattern using volume buttons to quickly mute alerts'}
+              ? 'Press the same volume button sequence again to confirm'
+              : 'Press the physical volume buttons to create your mute pattern'}
           </Text>
         </View>
 
         <View style={styles.sequenceDisplay}>
           <View style={styles.sequenceContainer}>
-            {(isConfirming ? confirmSequence : sequence).map((button, index) => (
+            {currentSequence.map((button, index) => (
               <View
                 key={index}
                 style={[
@@ -133,7 +173,7 @@ export default function SetupVolumeSequence() {
               </View>
             ))}
             {Array.from({
-              length: MAX_SEQUENCE_LENGTH - (isConfirming ? confirmSequence : sequence).length,
+              length: MAX_SEQUENCE_LENGTH - currentSequence.length,
             }).map((_, index) => (
               <View
                 key={`empty-${index}`}
@@ -143,8 +183,8 @@ export default function SetupVolumeSequence() {
           </View>
 
           <Text style={[styles.lengthText, { color: isDarkTheme ? '#999' : '#666' }]}>
-            {(isConfirming ? confirmSequence : sequence).length} / {MAX_SEQUENCE_LENGTH} buttons
-            {(isConfirming ? confirmSequence : sequence).length < MIN_SEQUENCE_LENGTH &&
+            {currentSequence.length} / {MAX_SEQUENCE_LENGTH} buttons
+            {currentSequence.length < MIN_SEQUENCE_LENGTH &&
               ` (min ${MIN_SEQUENCE_LENGTH})`}
           </Text>
         </View>
@@ -152,24 +192,6 @@ export default function SetupVolumeSequence() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.controls}>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.volumeButton, { backgroundColor: theme.primary }]}
-              onPress={() => addButton('up')}
-            >
-              <Text style={styles.volumeButtonLabel}>Volume Up</Text>
-              <Text style={styles.volumeButtonSymbol}>↑</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.volumeButton, { backgroundColor: '#666' }]}
-              onPress={() => addButton('down')}
-            >
-              <Text style={styles.volumeButtonLabel}>Volume Down</Text>
-              <Text style={styles.volumeButtonSymbol}>↓</Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: '#333' }]}
@@ -181,7 +203,7 @@ export default function SetupVolumeSequence() {
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: '#333' }]}
-              onPress={resetSequence}
+              onPress={clearSequence}
             >
               <VolumeX size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Clear</Text>
@@ -282,27 +304,6 @@ const styles = StyleSheet.create({
   },
   controls: {
     gap: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  volumeButton: {
-    flex: 1,
-    paddingVertical: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  volumeButtonLabel: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  volumeButtonSymbol: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
   },
   actionRow: {
     flexDirection: 'row',
