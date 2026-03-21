@@ -74,19 +74,19 @@ export default function Settings() {
       Animated.spring(slideAnim, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 100,
-        friction: 10,
+        tension: 200,
+        friction: 20,
       }),
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 100,
-        friction: 10,
+        tension: 200,
+        friction: 20,
       }),
     ]).start();
 
@@ -316,17 +316,17 @@ export default function Settings() {
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: SCREEN_HEIGHT,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 120,
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnim, {
         toValue: 0.95,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -840,7 +840,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.9
+              Drink Guardian v2.0
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe

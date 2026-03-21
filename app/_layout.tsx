@@ -14,6 +14,7 @@ export default function RootLayout() {
           headerShown: false,
           contentStyle: { backgroundColor: '#000' },
           animation: 'fade',
+          animationDuration: 150,
         }}
       >
         <Stack.Screen name="index" />
@@ -23,6 +24,7 @@ export default function RootLayout() {
           options={{
             contentStyle: { backgroundColor: '#000' },
             animation: 'fade',
+            animationDuration: 150,
           }}
         />
         <Stack.Screen name="monitor" />
@@ -32,6 +34,16 @@ export default function RootLayout() {
             gestureEnabled: false,
             contentStyle: { backgroundColor: '#000' },
             animation: 'fade',
+            animationDuration: 100,
+          }}
+        />
+        <Stack.Screen
+          name="grace-period"
+          options={{
+            gestureEnabled: false,
+            contentStyle: { backgroundColor: '#000' },
+            animation: 'fade',
+            animationDuration: 100,
           }}
         />
         <Stack.Screen name="+not-found" />
