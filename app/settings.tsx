@@ -544,7 +544,7 @@ export default function Settings() {
               <View style={styles.sliderContainer}>
                 <View style={styles.gracePeriodHeader}>
                   <Text style={[styles.flashToggleLabel, { color: textColor }]}>
-                    Grace Period: {settings?.grace_period_seconds || 3}s
+                    Grace Period: {settings?.grace_period_seconds || 4}s
                   </Text>
                 </View>
                 <Text style={[styles.sectionDescription, { color: secondaryTextColor, marginBottom: 12 }]}>
@@ -553,9 +553,9 @@ export default function Settings() {
                 <Slider
                   style={styles.slider}
                   minimumValue={2}
-                  maximumValue={4}
+                  maximumValue={7}
                   step={1}
-                  value={settings?.grace_period_seconds || 3}
+                  value={settings?.grace_period_seconds || 4}
                   onSlidingComplete={handleGracePeriodChange}
                   minimumTrackTintColor={accentColor}
                   maximumTrackTintColor={isDarkTheme ? '#333' : '#ddd'}
@@ -563,7 +563,7 @@ export default function Settings() {
                 />
                 <View style={styles.sliderLabels}>
                   <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>2 seconds</Text>
-                  <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>4 seconds</Text>
+                  <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>7 seconds</Text>
                 </View>
               </View>
 
@@ -833,7 +833,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.3
+              Drink Guardian v1.4
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe

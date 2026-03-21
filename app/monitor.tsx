@@ -92,7 +92,7 @@ export default function Monitor() {
   useEffect(() => {
     if (motionDetected && !isPaused && isActivated && !isStarting && !isCalibrating) {
       const volumeMuteEnabled = settings?.volume_mute_enabled ?? true;
-      const gracePeriod = settings?.grace_period_seconds || 3;
+      const gracePeriod = settings?.grace_period_seconds || 4;
       const useGracePeriod = volumeMuteEnabled && gracePeriod > 0;
 
       if (isIncognito && showBlackScreen) {
