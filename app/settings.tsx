@@ -36,7 +36,8 @@ interface TamperingEvent {
 export default function Settings() {
   const router = useRouter();
   const { settings, updateSensitivity, updateThemeColor, updateAlarmSound, updateUseFlash, updateIncognitoMode, updateVolumeMuteEnabled, updateGracePeriod } = useApp();
-  const [sensitivity, setSensitivity] = useState(settings?.sensitivity || 40);
+  const [sensitivity, setSensitivity] = useState(settings?.sensitivity ?? 40);
+  const [sensitivityReady, setSensitivityReady] = useState(false);
   const [tamperingEvents, setTamperingEvents] = useState<TamperingEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +51,14 @@ export default function Settings() {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  // Sync sensitivity slider with loaded settings
+  useEffect(() => {
+    if (settings?.sensitivity !== undefined) {
+      setSensitivity(settings.sensitivity);
+      setSensitivityReady(true);
+    }
+  }, [settings?.sensitivity]);
 
   useFocusEffect(
     useCallback(() => {
@@ -439,18 +448,20 @@ export default function Settings() {
             <Text style={[styles.sensitivityValue, { color: accentColor }]}>
               {sensitivity}%
             </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={10}
-              maximumValue={100}
-              step={1}
-              value={sensitivity}
-              onValueChange={setSensitivity}
-              onSlidingComplete={handleSensitivityChange}
-              minimumTrackTintColor={accentColor}
-              maximumTrackTintColor={isDarkTheme ? '#333' : '#ddd'}
-              thumbTintColor={accentColor}
-            />
+            {sensitivityReady && (
+              <Slider
+                style={styles.slider}
+                minimumValue={10}
+                maximumValue={100}
+                step={1}
+                value={sensitivity}
+                onValueChange={setSensitivity}
+                onSlidingComplete={handleSensitivityChange}
+                minimumTrackTintColor={accentColor}
+                maximumTrackTintColor={isDarkTheme ? '#333' : '#ddd'}
+                thumbTintColor={accentColor}
+              />
+            )}
             <View style={styles.sliderLabels}>
               <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>Less Sensitive</Text>
               <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>More Sensitive</Text>
@@ -822,7 +833,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.0
+              Drink Guardian v1.1
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe

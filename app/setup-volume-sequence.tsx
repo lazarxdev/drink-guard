@@ -7,8 +7,8 @@ import { useApp } from '@/contexts/AppContext';
 import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
 import { VolumeButton } from '@/hooks/useVolumeButtons';
 
-const MIN_SEQUENCE_LENGTH = 3;
-const MAX_SEQUENCE_LENGTH = 6;
+const MIN_SEQUENCE_LENGTH = 2;
+const MAX_SEQUENCE_LENGTH = 4;
 
 export default function SetupVolumeSequence() {
   const { settings, updateVolumeMuteSequence } = useApp();

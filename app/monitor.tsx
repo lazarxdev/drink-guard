@@ -427,14 +427,14 @@ export default function Monitor() {
               </View>
 
               <View style={styles.textSection}>
-                <Animated.View style={{ opacity: calibratingTextOpacity, position: 'absolute', width: '100%', alignItems: 'center' }}>
+                <Animated.View pointerEvents="none" style={{ opacity: calibratingTextOpacity, position: 'absolute', width: '100%', alignItems: 'center' }}>
                   <Text style={[styles.statusText, { color: textColor }]}>Calibrating...</Text>
                   <Text style={[styles.description, { color: isDarkTheme ? '#999' : '#666' }]}>
                     Please keep phone still
                   </Text>
                 </Animated.View>
 
-                <Animated.View style={{ opacity: monitoringTextOpacity, position: 'absolute', width: '100%', alignItems: 'center' }}>
+                <Animated.View pointerEvents="none" style={{ opacity: monitoringTextOpacity, position: 'absolute', width: '100%', alignItems: 'center' }}>
                   <Text style={[styles.statusText, { color: textColor }]}>Monitoring Active</Text>
                   <Text style={[styles.description, { color: isDarkTheme ? '#999' : '#666' }]}>
                     Movement will trigger alert
