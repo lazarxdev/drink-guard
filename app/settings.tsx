@@ -552,6 +552,7 @@ export default function Settings() {
                   Seconds to enter PIN after motion is detected
                 </Text>
                 <Slider
+                  key={`grace-${settings?.grace_period_seconds || 4}`}
                   style={styles.slider}
                   minimumValue={2}
                   maximumValue={7}
@@ -834,7 +835,7 @@ export default function Settings() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
-              Drink Guardian v1.5
+              Drink Guardian v1.6
             </Text>
             <Text style={[styles.footerText, { color: secondaryTextColor }]}>
               Keep your drink safe
