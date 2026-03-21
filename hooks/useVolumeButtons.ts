@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
-import { VolumeManager } from 'react-native-volume-manager';
 
 export type VolumeButton = 'up' | 'down';
+
+// Safe import - react-native-volume-manager requires a dev build (not Expo Go)
+let VolumeManagerModule: any = null;
+try {
+  VolumeManagerModule = require('react-native-volume-manager').VolumeManager;
+} catch {
+  // Not available in Expo Go - will use on-screen fallback
+}
 
 const MID_VOLUME = 0.5;
 const VOLUME_THRESHOLD = 0.01;
@@ -10,6 +17,7 @@ const VOLUME_THRESHOLD = 0.01;
 interface VolumeButtonDetectionResult {
   sequence: VolumeButton[];
   isListening: boolean;
+  isNativeAvailable: boolean;
   startListening: () => void;
   stopListening: () => void;
   resetSequence: () => void;
@@ -23,6 +31,7 @@ export function useVolumeButtons(
   const sequenceRef = useRef<VolumeButton[]>([]);
   const lastVolumeRef = useRef<number>(MID_VOLUME);
   const suppressRef = useRef(false);
+  const isNativeAvailable = Platform.OS !== 'web' && VolumeManagerModule != null;
 
   const addToSequence = useCallback((button: VolumeButton) => {
     const newSequence = [...sequenceRef.current, button];
@@ -37,43 +46,37 @@ export function useVolumeButtons(
   }, []);
 
   const startListening = useCallback(async () => {
-    if (Platform.OS === 'web') {
-      setIsListening(true);
-      return;
-    }
-
     resetSequence();
     setIsListening(true);
 
-    try {
-      // Hide the system volume HUD so presses are invisible
-      VolumeManager.showNativeVolumeUI({ enabled: false });
+    if (!isNativeAvailable) return;
 
-      // Set volume to midpoint so we can detect both up and down
-      await VolumeManager.setVolume(MID_VOLUME, { showUI: false });
+    try {
+      VolumeManagerModule.showNativeVolumeUI({ enabled: false });
+      await VolumeManagerModule.setVolume(MID_VOLUME, { showUI: false });
       lastVolumeRef.current = MID_VOLUME;
       suppressRef.current = false;
     } catch (err) {
       console.error('Error initializing volume listener:', err);
     }
-  }, [resetSequence]);
+  }, [resetSequence, isNativeAvailable]);
 
   const stopListening = useCallback(() => {
     setIsListening(false);
 
-    if (Platform.OS !== 'web') {
+    if (isNativeAvailable) {
       try {
-        VolumeManager.showNativeVolumeUI({ enabled: true });
-      } catch (err) {
+        VolumeManagerModule.showNativeVolumeUI({ enabled: true });
+      } catch {
         // ignore cleanup errors
       }
     }
-  }, []);
+  }, [isNativeAvailable]);
 
   useEffect(() => {
-    if (!isListening || Platform.OS === 'web') return;
+    if (!isListening || !isNativeAvailable) return;
 
-    const listener = VolumeManager.addVolumeListener((result) => {
+    const listener = VolumeManagerModule.addVolumeListener((result: { volume: number }) => {
       const newVolume = result.volume;
       const diff = newVolume - lastVolumeRef.current;
 
@@ -91,7 +94,7 @@ export function useVolumeButtons(
 
       // Reset volume back to midpoint for next press detection
       suppressRef.current = true;
-      VolumeManager.setVolume(MID_VOLUME, { showUI: false }).then(() => {
+      VolumeManagerModule.setVolume(MID_VOLUME, { showUI: false }).then(() => {
         lastVolumeRef.current = MID_VOLUME;
       });
     });
@@ -99,23 +102,24 @@ export function useVolumeButtons(
     return () => {
       listener.remove();
     };
-  }, [isListening, addToSequence]);
+  }, [isListening, isNativeAvailable, addToSequence]);
 
   useEffect(() => {
     return () => {
-      if (Platform.OS !== 'web') {
+      if (isNativeAvailable) {
         try {
-          VolumeManager.showNativeVolumeUI({ enabled: true });
-        } catch (err) {
+          VolumeManagerModule.showNativeVolumeUI({ enabled: true });
+        } catch {
           // ignore
         }
       }
     };
-  }, []);
+  }, [isNativeAvailable]);
 
   return {
     sequence,
     isListening,
+    isNativeAvailable,
     startListening,
     stopListening,
     resetSequence,

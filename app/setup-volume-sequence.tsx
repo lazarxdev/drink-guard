@@ -47,18 +47,43 @@ export default function SetupVolumeSequence() {
     }
   };
 
-  const { startListening, stopListening, resetSequence: resetHwSequence } = useVolumeButtons(handleVolumeChange);
+  const { startListening, stopListening, resetSequence: resetHwSequence, isNativeAvailable } = useVolumeButtons(handleVolumeChange);
 
   // Start listening on mount
   useEffect(() => {
-    startListening();
+    if (isNativeAvailable) {
+      startListening();
+    }
     return () => stopListening();
-  }, []);
+  }, [isNativeAvailable]);
 
   // Keep refs in sync
   useEffect(() => {
     isConfirmingRef.current = isConfirming;
   }, [isConfirming]);
+
+  // On-screen fallback for adding buttons (Expo Go)
+  const addButton = (button: VolumeButton) => {
+    if (Platform.OS !== 'web') {
+      Vibration.vibrate(50);
+    }
+
+    if (isConfirming) {
+      if (confirmSequence.length < MAX_SEQUENCE_LENGTH) {
+        const updated = [...confirmSequence, button];
+        confirmSequenceRef.current = updated;
+        setConfirmSequence(updated);
+        setError('');
+      }
+    } else {
+      if (sequence.length < MAX_SEQUENCE_LENGTH) {
+        const updated = [...sequence, button];
+        sequenceRef.current = updated;
+        setSequence(updated);
+        setError('');
+      }
+    }
+  };
 
   const removeLastButton = () => {
     if (isConfirming) {
@@ -96,7 +121,6 @@ export default function SetupVolumeSequence() {
         return;
       }
       setIsConfirming(true);
-      // Reset hw listener for the confirm phase
       resetHwSequence();
       setError('');
     } else {
@@ -150,8 +174,12 @@ export default function SetupVolumeSequence() {
           </Text>
           <Text style={[styles.subtitle, { color: isDarkTheme ? '#999' : '#666' }]}>
             {isConfirming
-              ? 'Press the same volume button sequence again to confirm'
-              : 'Press the physical volume buttons to create your mute pattern'}
+              ? (isNativeAvailable
+                  ? 'Press the same volume button sequence again to confirm'
+                  : 'Enter the same sequence again to confirm')
+              : (isNativeAvailable
+                  ? 'Press the physical volume buttons to create your mute pattern'
+                  : 'Create a pattern using volume buttons to quickly mute alerts')}
           </Text>
         </View>
 
@@ -192,6 +220,26 @@ export default function SetupVolumeSequence() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.controls}>
+          {!isNativeAvailable && (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.tapVolumeButton, { backgroundColor: theme.primary }]}
+                onPress={() => addButton('up')}
+              >
+                <Text style={styles.volumeButtonLabel}>Volume Up</Text>
+                <Text style={styles.volumeButtonSymbol}>↑</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tapVolumeButton, { backgroundColor: '#666' }]}
+                onPress={() => addButton('down')}
+              >
+                <Text style={styles.volumeButtonLabel}>Volume Down</Text>
+                <Text style={styles.volumeButtonSymbol}>↓</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: '#333' }]}
@@ -304,6 +352,27 @@ const styles = StyleSheet.create({
   },
   controls: {
     gap: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  tapVolumeButton: {
+    flex: 1,
+    paddingVertical: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  volumeButtonLabel: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  volumeButtonSymbol: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   actionRow: {
     flexDirection: 'row',

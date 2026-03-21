@@ -28,17 +28,17 @@ export default function GracePeriod() {
   const expectedSequence = parseVolumeSequence(settings?.volume_mute_sequence || null);
   const hasVolumeSequence = volumeMuteEnabled && expectedSequence.length > 0;
 
-  const { sequence: volumeSequence, startListening, stopListening, resetSequence } = useVolumeButtons();
+  const { sequence: volumeSequence, startListening, stopListening, resetSequence, isNativeAvailable } = useVolumeButtons();
 
   // Start listening for hardware volume buttons when the screen mounts
   useEffect(() => {
-    if (hasVolumeSequence) {
+    if (hasVolumeSequence && isNativeAvailable) {
       startListening();
     }
     return () => {
       stopListening();
     };
-  }, [hasVolumeSequence]);
+  }, [hasVolumeSequence, isNativeAvailable]);
 
   // Check volume sequence against expected on each press
   useEffect(() => {
@@ -50,13 +50,37 @@ export default function GracePeriod() {
         matchHandledRef.current = true;
         handleSequenceSuccess();
       } else {
-        // Wrong sequence, reset and let them try again
         resetSequence();
       }
     } else if (volumeSequence.length > expectedSequence.length) {
       resetSequence();
     }
   }, [volumeSequence, expectedSequence, hasVolumeSequence]);
+
+  // Manual sequence state for on-screen fallback
+  const [manualSequence, setManualSequence] = useState<VolumeButton[]>([]);
+  const activeSequence = isNativeAvailable ? volumeSequence : manualSequence;
+
+  const handleManualPress = (button: VolumeButton) => {
+    if (Platform.OS !== 'web') {
+      Vibration.vibrate(50);
+    }
+
+    const newSequence = [...manualSequence, button];
+
+    if (newSequence.length === expectedSequence.length) {
+      const isValid = validateVolumeSequence(newSequence, expectedSequence);
+      if (isValid) {
+        handleSequenceSuccess();
+        return;
+      } else {
+        setManualSequence([]);
+        return;
+      }
+    }
+
+    setManualSequence(newSequence);
+  };
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -201,7 +225,7 @@ export default function GracePeriod() {
                 style={[
                   styles.sequenceDot,
                   {
-                    backgroundColor: index < volumeSequence.length
+                    backgroundColor: index < activeSequence.length
                       ? theme.primary
                       : 'rgba(255, 255, 255, 0.2)',
                   },
@@ -210,10 +234,34 @@ export default function GracePeriod() {
             ))}
           </View>
 
+          {!isNativeAvailable && (
+            <View style={styles.volumeButtonRow}>
+              <TouchableOpacity
+                style={[styles.volumeButton, { backgroundColor: theme.primary }]}
+                onPress={() => handleManualPress('up')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.volumeButtonSymbol}>↑</Text>
+                <Text style={styles.volumeButtonLabel}>Vol Up</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.volumeButton, { backgroundColor: '#555' }]}
+                onPress={() => handleManualPress('down')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.volumeButtonSymbol}>↓</Text>
+                <Text style={styles.volumeButtonLabel}>Vol Down</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <Text style={styles.volumeHint}>
-            {volumeSequence.length === 0
-              ? 'Press your volume button sequence now'
-              : `${volumeSequence.length} / ${expectedSequence.length}`}
+            {activeSequence.length === 0
+              ? (isNativeAvailable
+                  ? 'Press your volume button sequence now'
+                  : 'Tap your volume sequence above')
+              : `${activeSequence.length} / ${expectedSequence.length}`}
           </Text>
 
           <TouchableOpacity onPress={() => setShowPinEntry(true)}>
@@ -269,6 +317,28 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
+  },
+  volumeButtonRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  volumeButton: {
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  volumeButtonSymbol: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  volumeButtonLabel: {
+    color: '#fff',
+    fontSize: 13,
+    marginTop: 4,
   },
   volumeHint: {
     color: '#999',
