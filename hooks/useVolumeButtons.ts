@@ -12,7 +12,8 @@ try {
 }
 
 const MID_VOLUME = 0.5;
-const VOLUME_THRESHOLD = 0.01;
+const VOLUME_THRESHOLD = 0.005;
+const DEBOUNCE_MS = 80;
 
 interface VolumeButtonDetectionResult {
   sequence: VolumeButton[];
@@ -31,14 +32,22 @@ export function useVolumeButtons(
   const sequenceRef = useRef<VolumeButton[]>([]);
   const lastVolumeRef = useRef<number>(MID_VOLUME);
   const suppressRef = useRef(false);
+  const resettingRef = useRef(false);
+  const lastPressTimeRef = useRef<number>(0);
+  const onSequenceChangeRef = useRef(onSequenceChange);
   const isNativeAvailable = Platform.OS !== 'web' && VolumeManagerModule != null;
+
+  // Keep callback ref in sync without causing listener re-subscriptions
+  useEffect(() => {
+    onSequenceChangeRef.current = onSequenceChange;
+  }, [onSequenceChange]);
 
   const addToSequence = useCallback((button: VolumeButton) => {
     const newSequence = [...sequenceRef.current, button];
     sequenceRef.current = newSequence;
     setSequence(newSequence);
-    onSequenceChange?.(newSequence);
-  }, [onSequenceChange]);
+    onSequenceChangeRef.current?.(newSequence);
+  }, []);
 
   const resetSequence = useCallback(() => {
     sequenceRef.current = [];
@@ -56,6 +65,7 @@ export function useVolumeButtons(
       await VolumeManagerModule.setVolume(MID_VOLUME, { showUI: false });
       lastVolumeRef.current = MID_VOLUME;
       suppressRef.current = false;
+      resettingRef.current = false;
     } catch (err) {
       console.error('Error initializing volume listener:', err);
     }
@@ -78,7 +88,6 @@ export function useVolumeButtons(
 
     const listener = VolumeManagerModule.addVolumeListener((result: { volume: number }) => {
       const newVolume = result.volume;
-      const diff = newVolume - lastVolumeRef.current;
 
       // Ignore our own volume resets
       if (suppressRef.current) {
@@ -87,16 +96,35 @@ export function useVolumeButtons(
         return;
       }
 
+      // Skip events while volume is being reset to midpoint
+      if (resettingRef.current) {
+        lastVolumeRef.current = newVolume;
+        return;
+      }
+
+      const diff = newVolume - lastVolumeRef.current;
       if (Math.abs(diff) < VOLUME_THRESHOLD) return;
+
+      // Debounce rapid presses
+      const now = Date.now();
+      if (now - lastPressTimeRef.current < DEBOUNCE_MS) return;
+      lastPressTimeRef.current = now;
 
       const button: VolumeButton = diff > 0 ? 'up' : 'down';
       addToSequence(button);
 
-      // Reset volume back to midpoint for next press detection
+      // Reset volume back to midpoint — mark as resetting to ignore intermediate events
+      resettingRef.current = true;
       suppressRef.current = true;
-      VolumeManagerModule.setVolume(MID_VOLUME, { showUI: false }).then(() => {
-        lastVolumeRef.current = MID_VOLUME;
-      });
+      VolumeManagerModule.setVolume(MID_VOLUME, { showUI: false })
+        .then(() => {
+          lastVolumeRef.current = MID_VOLUME;
+          resettingRef.current = false;
+        })
+        .catch(() => {
+          lastVolumeRef.current = newVolume;
+          resettingRef.current = false;
+        });
     });
 
     return () => {

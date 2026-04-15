@@ -14,24 +14,17 @@ export async function getUserId(): Promise<string> {
   const { data, error } = await supabase.auth.signInAnonymously();
 
   if (error) {
-    console.warn('Anonymous auth disabled, using session-based auth:', error.message);
-
+    // Anonymous auth is required for data isolation.
+    // If it's disabled on the Supabase project, check the cached session
+    // as a read-only fallback but don't create insecure temp accounts.
     const cachedSession = await AsyncStorage.getItem(AUTH_SESSION_KEY);
     if (cachedSession) {
       return cachedSession;
     }
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: `user-${Date.now()}-${Math.random().toString(36).substring(7)}@temp.local`,
-      password: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
-    });
-
-    if (signUpError || !signUpData.user) {
-      throw new Error('Failed to create authenticated session');
-    }
-
-    await AsyncStorage.setItem(AUTH_SESSION_KEY, signUpData.user.id);
-    return signUpData.user.id;
+    throw new Error(
+      'Anonymous authentication is not enabled. Please enable it in Supabase Dashboard > Authentication > Providers > Anonymous Sign-Ins.'
+    );
   }
 
   if (!data.user) {

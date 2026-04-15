@@ -49,31 +49,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const savePin = async (pinHash: string) => {
     try {
       const userId = await getUserId();
-      console.log('User ID:', userId);
-      console.log('Has existing settings:', !!settings);
 
       if (settings) {
-        console.log('Updating existing settings...');
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('app_settings')
           .update({ pin_hash: pinHash, updated_at: new Date().toISOString() })
           .eq('user_id', userId)
           .select();
 
-        console.log('Update result:', { data, error });
         if (error) throw error;
       } else {
-        console.log('Inserting new settings...');
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('app_settings')
           .insert({ user_id: userId, pin_hash: pinHash })
           .select();
 
-        console.log('Insert result:', { data, error });
         if (error) throw error;
       }
 
-      console.log('Refreshing settings...');
       await refreshSettings();
     } catch (error) {
       console.error('Error saving PIN:', error);

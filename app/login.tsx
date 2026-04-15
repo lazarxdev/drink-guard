@@ -8,10 +8,13 @@ import { ShieldCheck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PINKeypad from '@/components/PINKeypad';
 import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
+import { recordFailedAttempt, isLockedOut, resetLockout } from '@/utils/pinLockout';
 
 export default function Login() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [locked, setLocked] = useState(false);
+  const [lockSeconds, setLockSeconds] = useState(0);
   const { settings } = useApp();
   const router = useRouter();
 
@@ -79,17 +82,51 @@ export default function Login() {
     }
   }, [pin]);
 
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!locked) return;
+    const interval = setInterval(() => {
+      const status = isLockedOut();
+      if (!status.locked) {
+        setLocked(false);
+        setLockSeconds(0);
+        setError('');
+      } else {
+        setLockSeconds(status.remainingSeconds);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [locked]);
+
   const handleLogin = async () => {
     setError('');
+
+    const lockStatus = isLockedOut();
+    if (lockStatus.locked) {
+      setLocked(true);
+      setLockSeconds(lockStatus.remainingSeconds);
+      setError(`Too many attempts. Try again in ${lockStatus.remainingSeconds}s`);
+      setPin('');
+      return;
+    }
 
     try {
       const isValid = await verifyPin(pin, settings?.pin_hash || '');
 
       if (isValid) {
+        resetLockout();
         await checkForTamperingEvents();
         router.replace('/monitor');
       } else {
-        setError('Incorrect PIN');
+        const result = recordFailedAttempt();
+
+        if (result.locked) {
+          setLocked(true);
+          setLockSeconds(result.remainingSeconds);
+          setError(`Too many attempts. Locked for ${result.remainingSeconds}s`);
+        } else {
+          setError(`Incorrect PIN (${result.attempts}/5 attempts)`);
+        }
         setPin('');
       }
     } catch (err) {

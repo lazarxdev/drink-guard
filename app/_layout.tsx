@@ -46,6 +46,9 @@ export default function RootLayout() {
             animationDuration: 100,
           }}
         />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="setup-volume-sequence" />
+        <Stack.Screen name="reset-pin" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
