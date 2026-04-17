@@ -6,6 +6,7 @@ import { useApp } from '@/contexts/AppContext';
 import { verifyPin } from '@/utils/crypto';
 import { setupAudio, playAlarmSound, stopAlarmSound } from '@/utils/alarm';
 import { startFlashlight, stopFlashlight } from '@/utils/flashlight';
+import { sendTamperNotification } from '@/utils/notifications';
 import { supabase } from '@/lib/supabase';
 import { TriangleAlert as AlertTriangle, Volume2 } from 'lucide-react-native';
 import PINKeypad from '@/components/PINKeypad';
@@ -52,6 +53,8 @@ export default function Alert() {
       } catch (error) {
         console.error('Error saving tampering event:', error);
       }
+
+      sendTamperNotification();
 
       if (!isIncognito) {
         await setupAudio();

@@ -3,9 +3,14 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AppProvider } from '@/contexts/AppContext';
+import { setupNotifications } from '@/utils/notifications';
 
 export default function RootLayout() {
   useFrameworkReady();
+
+  useEffect(() => {
+    setupNotifications();
+  }, []);
 
   return (
     <AppProvider>

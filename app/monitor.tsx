@@ -5,8 +5,10 @@ import { useApp } from '@/contexts/AppContext';
 import { useMotionDetection } from '@/hooks/useMotionDetection';
 import { Shield, ShieldAlert, Settings } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { getTheme, isDarkTheme as checkDarkTheme } from '@/utils/theme';
 import { supabase } from '@/lib/supabase';
+import { sendTamperNotification } from '@/utils/notifications';
 import { verifyPin } from '@/utils/crypto';
 import PINKeypad from '@/components/PINKeypad';
 import { ShieldToMonitor } from '@/components/animations/ShieldToMonitor';
@@ -56,6 +58,16 @@ export default function Monitor() {
     }
   }, [isActivated]);
 
+  // Keep screen awake while monitoring so iOS doesn't suspend the app
+  useEffect(() => {
+    if (isActivated) {
+      activateKeepAwakeAsync('drink-guard-monitor').catch(() => {});
+      return () => {
+        deactivateKeepAwake('drink-guard-monitor');
+      };
+    }
+  }, [isActivated]);
+
   useEffect(() => {
     if (motionDetected && !isPaused && isActivated && !isStarting && !isCalibrating) {
       const volumeMuteEnabled = settings?.volume_mute_enabled ?? true;
@@ -70,6 +82,7 @@ export default function Monitor() {
 
         stopMonitoring();
         setIsPaused(true);
+        sendTamperNotification();
 
         if (useGracePeriod) {
           router.push('/grace-period');
